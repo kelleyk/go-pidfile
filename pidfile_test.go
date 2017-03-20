@@ -56,7 +56,7 @@ func TestSimple(t *testing.T) {
 	err = pidfile.Write(0)
 	assert.Nil(t, err)
 
-	p, err := pidfile.Read()
+	p, _, err := pidfile.Read()
 	assert.Nil(t, err)
 	assert.Equal(t, Pid(os.Getpid()), p)
 }
@@ -72,7 +72,7 @@ func TestMakesDirectories(t *testing.T) {
 	err = pidfile.Write(0)
 	assert.Nil(t, err)
 
-	p, err := pidfile.Read()
+	p, _, err := pidfile.Read()
 	assert.Nil(t, err)
 	assert.Equal(t, Pid(os.Getpid()), p)
 }

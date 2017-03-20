@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/facebookgo/atomicfile"
 	"github.com/pkg/errors"
@@ -18,7 +19,7 @@ type Pid int32 // __S32_TYPE
 type Pidfile interface {
 	Path() string
 	Write(Pid) error
-	Read() (Pid, error)
+	Read() (Pid, time.Time, error)
 }
 
 type pidfile struct {
@@ -68,17 +69,22 @@ func (p *pidfile) Write(pid Pid) error {
 	return nil
 }
 
-// Read the pidfile.
-func (p *pidfile) Read() (Pid, error) {
+// Read the pidfile and its mtime.  If err != nil, returns zero-values for pid and mtime.
+func (p *pidfile) Read() (Pid, time.Time, error) {
 	d, err := ioutil.ReadFile(p.path)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to read pidfile: %v", p.path)
+		return 0, time.Time{}, errors.Wrapf(err, "failed to read pidfile: %v", p.path)
+	}
+
+	st, err := os.Stat(p.path)
+	if err != nil {
+		return 0, time.Time{}, errors.Wrapf(err, "failed to stat pidfile: %v", p.path)
 	}
 
 	pid, err := strconv.Atoi(string(bytes.TrimSpace(d)))
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to parse pid from pidfile: %v", p.path)
+		return 0, time.Time{}, errors.Wrapf(err, "failed to parse pid from pidfile: %v", p.path)
 	}
 
-	return Pid(pid), nil
+	return Pid(pid), st.ModTime(), nil
 }
