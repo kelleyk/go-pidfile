@@ -1,13 +1,12 @@
-package pidfile_test
+package pidfile
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/facebookgo/pidfile"
+	"github.com/stretchr/testify/assert"
 )
 
 // Make a temporary file, remove it, and return it's path with the hopes that
@@ -31,78 +30,49 @@ func tempfilename(t *testing.T) string {
 	return file.Name()
 }
 
-func TestGetSetPath(t *testing.T) {
-	p := tempfilename(t)
-	defer os.Remove(p)
-	pidfile.SetPidfilePath(p)
+func TestGetPath(t *testing.T) {
+	pidfilePath := tempfilename(t)
+	defer func() {
+		_ = os.Remove(pidfilePath)
+	}()
 
-	if a := pidfile.GetPidfilePath(); a != p {
-		t.Fatalf("was expecting %s but got %s", p, a)
+	pidfile, err := New(pidfilePath)
+	assert.Nil(t, err)
+
+	if a := pidfile.Path(); a != pidfilePath {
+		t.Fatalf("was expecting %s but got %s", pidfilePath, a)
 	}
 }
 
 func TestSimple(t *testing.T) {
-	p := tempfilename(t)
-	defer os.Remove(p)
-	pidfile.SetPidfilePath(p)
+	pidfilePath := tempfilename(t)
+	defer func() {
+		_ = os.Remove(pidfilePath)
+	}()
 
-	if err := pidfile.Write(); err != nil {
-		t.Fatal(err)
-	}
+	pidfile, err := New(pidfilePath)
+	assert.Nil(t, err)
 
-	pid, err := pidfile.Read()
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = pidfile.Write(0)
+	assert.Nil(t, err)
 
-	if os.Getpid() != pid {
-		t.Fatalf("was expecting %d but got %d", os.Getpid(), pid)
-	}
-}
-
-func TestPidfileNotConfigured(t *testing.T) {
-	pidfile.SetPidfilePath("")
-
-	err := pidfile.Write()
-	if err == nil {
-		t.Fatal("was expecting an error")
-	}
-	if !pidfile.IsNotConfigured(err) {
-		t.Fatalf("was expecting IsNotConfigured error but got: %s", err)
-	}
-
-	_, err = pidfile.Read()
-	if err == nil {
-		t.Fatal("was expecting an error")
-	}
-	if !pidfile.IsNotConfigured(err) {
-		t.Fatalf("was expecting IsNotConfigured error but got: %s", err)
-	}
-}
-
-func TestNonIsConfiguredError(t *testing.T) {
-	err := errors.New("foo")
-	if pidfile.IsNotConfigured(err) {
-		t.Fatal("should be false")
-	}
+	p, err := pidfile.Read()
+	assert.Nil(t, err)
+	assert.Equal(t, Pid(os.Getpid()), p)
 }
 
 func TestMakesDirectories(t *testing.T) {
 	dir := tempfilename(t)
-	defer os.RemoveAll(dir)
-	p := filepath.Join(dir, "pidfile")
-	pidfile.SetPidfilePath(p)
+	defer func() {
+		_ = os.RemoveAll(dir)
+	}()
+	pidfilePath := filepath.Join(dir, "pidfile")
+	pidfile, err := New(pidfilePath)
 
-	if err := pidfile.Write(); err != nil {
-		t.Fatal(err)
-	}
+	err = pidfile.Write(0)
+	assert.Nil(t, err)
 
-	pid, err := pidfile.Read()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if os.Getpid() != pid {
-		t.Fatalf("was expecting %d but got %d", os.Getpid(), pid)
-	}
+	p, err := pidfile.Read()
+	assert.Nil(t, err)
+	assert.Equal(t, Pid(os.Getpid()), p)
 }
